@@ -8,6 +8,7 @@ import { useMatch, useNavigate } from 'react-router-dom';
 import { Modal } from '@strapi/design-system';
 import { useAuth, useFetchClient } from '@strapi/strapi/admin';
 import { getTranslation } from '../../utils/getTranslation';
+import { logger } from '../../utils/logger';
 
 const useLockingData = () => {
   const collectionType = useMatch('/content-manager/collection-types/:entityId/:entityDocumentId');
@@ -67,6 +68,7 @@ const useLockStatus = () => {
     const token = localStorage.getItem('jwtToken') || sessionStorage.getItem('jwtToken');
 
     if (token && lockingData && lockingData?.requestData.entityDocumentId !== 'create' && settings) {
+      logger.debug('Attempting Entity Locking');
       socket.current = io(undefined, {
         reconnectionDelayMax: 10000,
         rejectUnauthorized: false,
@@ -79,6 +81,9 @@ const useLockStatus = () => {
       });
       socket.current.io.on('reconnect', attemptEntityLocking);
       attemptEntityLocking();
+    }
+    else {
+      logger.debug(`Entity Locking not attempted because token: ${token} and lockingData: ${lockingData} and settings: ${settings}`);
     }
 
     return () => {
@@ -116,7 +121,7 @@ export default function EntityLock() {
   const navigate = useNavigate();
   const { formatMessage } = useIntl();
   const lockStatus = useLockStatus();
-
+  logger.debug(`EntityLock component lockStatus: ${lockStatus}`);
   if (!lockStatus) return null;
 
   return (

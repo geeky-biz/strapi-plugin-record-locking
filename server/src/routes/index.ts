@@ -9,6 +9,14 @@ export default [
   },
   {
     method: 'GET',
+    path: '/log-settings',
+    handler: 'controller.getLogSettings',
+    config: {
+      policies: [],
+    },
+  },
+  {
+    method: 'GET',
     path: '/get-status/:entityDocumentId',
     handler: 'controller.getStatusBySlug',
     config: {

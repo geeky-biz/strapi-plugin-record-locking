@@ -1,7 +1,13 @@
 import type { Core } from '@strapi/strapi';
 import DEFAULT_TRANSPORTS from '../constants/transports';
+import createPluginLogger from '../utils/logger';
 
-const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
+const controller = ({ strapi }: { strapi: Core.Strapi }) => {
+  // Create logger instance for this controller
+  const logLevel = strapi.plugin('record-locking').config('logLevel') || 'info';
+  const logger = createPluginLogger(logLevel);
+  
+  return {
   async getSettings(ctx) {
     const settings = {
       transports:
@@ -11,9 +17,18 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     ctx.send(settings);
   },
 
+  async getLogSettings(ctx) {
+    const logSettings = {
+      logLevel: strapi.plugin('record-locking').config('logLevel') || 'info',
+      enableLogging: strapi.plugin('record-locking').config('enableLogging') || true,
+    };
+    ctx.send(logSettings);
+  },
+
   async getStatusBySlug(ctx) {
     const { entityDocumentId } = ctx.request.params;
     const { id: userId } = ctx.state.user;
+    logger.debug(`User ${userId} checking status for document: ${entityDocumentId}`);
 
     const data = await strapi.db.query('plugin::record-locking.open-entity').findOne({
       where: {
@@ -38,6 +53,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   async getStatusByIdAndSlug(ctx) {
     const { entityId, entityDocumentId } = ctx.request.params;
     const { id: userId } = ctx.state.user;
+    logger.debug(`User ${userId} checking status for entity: ${entityId}, document: ${entityDocumentId}`);
     const data = await strapi.db.query('plugin::record-locking.open-entity').findOne({
       where: {
         entityDocumentId,
@@ -62,6 +78,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   async setStatusByIdAndSlug(ctx) {
     const { entityId, entityDocumentId } = ctx.request.params;
     const { id: userId } = ctx.state.user;
+    logger.info(`User ${userId} locking entity: ${entityId}, document: ${entityDocumentId}`);
 
     await strapi.db.query('plugin::record-locking.open-entity').create({
       data: {
@@ -77,6 +94,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   async deleteStatusByIdAndSlug(ctx) {
     const { entityId, entityDocumentId } = ctx.request.params;
     const { id: userId } = ctx.state.user;
+    logger.info(`User ${userId} unlocking entity: ${entityId}, document: ${entityDocumentId}`);
 
     await strapi.db.query('plugin::record-locking.open-entity').deleteMany({
       where: {
@@ -88,6 +106,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     return 'DELETED';
   },
-});
+  };
+};
 
 export default controller;

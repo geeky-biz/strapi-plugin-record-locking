@@ -1,6 +1,7 @@
 import EntityLock from './components/EntityLock';
 import { Initializer } from './components/Initializer';
 import { PLUGIN_ID } from './pluginId';
+import { initializeLogger } from './utils/logger';
 
 export default {
   register(app: any) {
@@ -12,7 +13,9 @@ export default {
     });
   },
 
-  bootstrap(app: any) {
+  async bootstrap(app: any) {
+    await initializeLogger();
+    
     app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
       name: 'EntityLock',
       Component: EntityLock,
@@ -54,3 +57,4 @@ const prefixPluginTranslations = (trad: TradOptions, pluginId: string): TradOpti
     return acc;
   }, {} as TradOptions);
 };
+

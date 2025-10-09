@@ -1,13 +1,17 @@
 import type { Core } from '@strapi/strapi';
 import { Server } from 'socket.io';
+import pluginLogger from './utils/logger';
 
 const bootstrap = ({ strapi }: { strapi: Core.Strapi }) => {
-  // bootstrap phase
+
+  const logLevel = strapi.plugin('record-locking').config('logLevel') || 'info';
+  const logger = pluginLogger(logLevel);
 
   const io = new Server(strapi.server.httpServer);
 
   io.on('connection', (socket) => {
     socket.on('openEntity', async ({ entityDocumentId, entityId }) => {
+      logger.debug('Received openEntity socket event.');
       const userId = strapi.admin.services.token.decodeJwtToken(socket.handshake.auth.token).payload
         .id;
 
@@ -23,6 +27,7 @@ const bootstrap = ({ strapi }: { strapi: Core.Strapi }) => {
           ['create', 'delete', 'publish'].some((operation) => perm.action.includes(operation))
         ).length !== 0;
       if (userHasAdequatePermissions) {
+        logger.debug(`Creating open-entity record for user: ${userId} entity: ${entityId} entityDocumentId: ${entityDocumentId})`);
         await strapi.db.query('plugin::record-locking.open-entity').create({
           data: {
             user: String(userId),
@@ -32,9 +37,13 @@ const bootstrap = ({ strapi }: { strapi: Core.Strapi }) => {
           },
         });
       }
+      else {
+        logger.debug(`User: ${userId} does not have adequate permissions modify this data.`);
+      }
     });
 
     socket.on('closeEntity', async ({ entityId, entityDocumentId, userId }) => {
+      logger.debug(`Received closeEntity socket event. Deleting open-entity record for user: ${userId} entity: ${entityId} entityDocumentId: ${entityDocumentId}`);
       await strapi.db.query('plugin::record-locking.open-entity').deleteMany({
         where: {
           user: String(userId),
@@ -45,6 +54,7 @@ const bootstrap = ({ strapi }: { strapi: Core.Strapi }) => {
     });
 
     socket.on('disconnect', async () => {
+      logger.debug(`Received disconnect socket event. Deleting open-entity record for connectionId: ${socket.id}`);
       await strapi.db.query('plugin::record-locking.open-entity').deleteMany({
         where: {
           connectionId: socket.id,
